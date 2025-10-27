@@ -1,13 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
-contract LegitRegistry712 is Ownable, EIP712 {
+contract LegitRegistry712 is EIP712 {
     using ECDSA for bytes32;
-    address public immutable ADMIN;
+    address public immutable ADMIN; // 複数Walletにすることもできる. この単一点障害
     mapping(bytes32 => bool) public usedNonce;
 
     mapping(address => bool) public isLegit;
@@ -39,11 +38,10 @@ contract LegitRegistry712 is Ownable, EIP712 {
         address wallet;    // 正統化するウォレット（Safeなど）
         bytes32 nonce;     // 一度きり
         uint64 issuedAt;   // 発行時刻
-        uint64 expiresAt;  // 有効期限（0は非推奨）
+        uint64 expiresAt;
     }
 
     constructor(address adminSigner)
-        Ownable(msg.sender)
         EIP712("UryuDAO", "1")
     {
         require(adminSigner != address(0), "ADMIN_ZERO");
@@ -94,13 +92,6 @@ contract LegitRegistry712 is Ownable, EIP712 {
         lastUID[c.wallet] = uid;
 
         emit Attested(uid, c.wallet, c.appId, c.userHash, c.issuedAt, c.expiresAt, c.nonce, signer, adminSignature);
-    }
-
-    /// @notice 正統フラグの失効（レジストリ管理者のみ）
-    function revoke(address wallet) external onlyOwner {
-        require(isLegit[wallet], "NOT_LEGIT");
-        isLegit[wallet] = false;
-        emit Revoked(wallet);
     }
 
     function hashClaim(Claim calldata c) external pure returns (bytes32) {

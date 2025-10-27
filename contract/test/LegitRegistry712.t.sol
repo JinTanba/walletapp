@@ -2,7 +2,6 @@
 pragma solidity ^0.8.20;
 
 import {Test} from "forge-std/Test.sol";
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {LegitRegistry712} from "../src/LegitRegistry712.sol";
 
 contract LegitRegistry712Test is Test {
@@ -84,34 +83,6 @@ contract LegitRegistry712Test is Test {
 
         vm.expectRevert("EXPIRED");
         registry.submitAttestation(claim, signature);
-    }
-
-    function testRevokeClearsLegitStatus() public {
-        address wallet = makeAddr("wallet");
-        LegitRegistry712.Claim memory claim = _defaultClaim(wallet);
-        (bytes memory signature,) = _signClaim(claim, adminPrivateKey);
-
-        registry.submitAttestation(claim, signature);
-
-        vm.expectEmit(true, false, false, true, address(registry));
-        emit LegitRegistry712.Revoked(wallet);
-
-        registry.revoke(wallet);
-
-        assertFalse(registry.isLegit(wallet));
-    }
-
-    function testRevokeOnlyOwner() public {
-        address wallet = makeAddr("wallet");
-        LegitRegistry712.Claim memory claim = _defaultClaim(wallet);
-        (bytes memory signature,) = _signClaim(claim, adminPrivateKey);
-
-        registry.submitAttestation(claim, signature);
-
-        address nonOwner = makeAddr("attacker");
-        vm.prank(nonOwner);
-        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, nonOwner));
-        registry.revoke(wallet);
     }
 
     function _defaultClaim(address wallet) internal view returns (LegitRegistry712.Claim memory claim) {
