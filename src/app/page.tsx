@@ -1,9 +1,31 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSafePasskeyHooks } from "./hooks/safepasskeyFooks";
 import { sendLogMessage } from "./libs/executeTx";
+import { useSession, signOut as nextAuthSignOut } from "next-auth/react";
+import { signInWithCustomToken } from "firebase/auth";
+import { auth } from "./libs/firebase";
+import { GoogleAuthButton } from "./components/GoogleAuthButton";
 
 export default function Home() {
+  const { data: session, status } = useSession();
+  const [firebaseUser, setFirebaseUser] = useState<any>(null);
+
+  // NextAuthセッションからFirebaseトークンを使ってFirebaseにログイン
+  useEffect(() => {
+    if (session?.firebaseToken && !firebaseUser) {
+      console.log('Signing in to Firebase with custom token...');
+      signInWithCustomToken(auth, session.firebaseToken)
+        .then((result) => {
+          console.log('Firebase sign-in successful:', result.user.email);
+          setFirebaseUser(result.user);
+        })
+        .catch((error) => {
+          console.error('Firebase sign-in error:', error);
+        });
+    }
+  }, [session, firebaseUser]);
+
   const {
     safeAddress,
     isDeployed,
@@ -93,7 +115,8 @@ export default function Home() {
     }
   };
 
-  if (isLoading) {
+  // セッションのローディング中
+  if (status === 'loading' || isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-3xl shadow-sm p-12 max-w-md w-full border border-gray-100">
@@ -104,7 +127,199 @@ export default function Home() {
               </svg>
             </div>
           </div>
-          <p className="text-gray-600 text-center text-sm">Initializing wallet...</p>
+          <p className="text-gray-600 text-center text-sm">
+            {status === 'loading' ? 'Loading authentication...' : 'Initializing wallet...'}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Google認証が必要な場合
+  if (!session) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-8">
+        <div className="max-w-7xl w-full grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+          {/* Left Column - Features */}
+          <div className="space-y-6">
+            <div className="flex items-start space-x-4">
+              <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center border border-gray-200 flex-shrink-0">
+                <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-1">Passkey Wallet</h3>
+                <p className="text-sm text-gray-600">
+                  Secure wallet using device biometrics and passkey technology for Web3.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start space-x-4">
+              <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center border border-gray-200 flex-shrink-0">
+                <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-1">Safe Integration</h3>
+                <p className="text-sm text-gray-600">
+                  Built on Safe (formerly Gnosis Safe) smart contract wallets for enhanced security.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start space-x-4">
+              <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center border border-gray-200 flex-shrink-0">
+                <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-1">Web2 Auth</h3>
+                <p className="text-sm text-gray-600">
+                  Easy onboarding with familiar authentication methods for seamless user experience.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column - Login UI */}
+          <div className="bg-white rounded-3xl shadow-sm p-12 border border-gray-100">
+            <div className="flex items-center justify-center mb-6">
+              <div className="w-20 h-20 bg-black rounded-full flex items-center justify-center">
+                <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+              </div>
+            </div>
+
+            <h1 className="text-3xl font-bold text-center mb-2 text-gray-900">
+              Welcome to Wallet
+            </h1>
+            <p className="text-center text-gray-500 text-sm mb-10">
+              Sign in with your Google account to get started.
+            </p>
+
+            <div className="space-y-5">
+              <GoogleAuthButton />
+            </div>
+
+            {/* Footer */}
+            <div className="mt-8 text-center text-xs text-gray-500">
+              <p>
+                By connecting your wallet you agree to the{' '}
+                <a href="#" className="text-gray-900 hover:underline">Terms of Service</a>
+                {' '}and{' '}
+                <a href="#" className="text-gray-900 hover:underline">Privacy Policy</a>
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Firebase認証済みだがウォレット未作成の場合
+  if (firebaseUser && !safeAddress && !isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-8">
+        <div className="max-w-7xl w-full grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+          {/* Left Column - Features */}
+          <div className="space-y-6">
+            <div className="flex items-start space-x-4">
+              <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center border border-gray-200 flex-shrink-0">
+                <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-1">Passkey Wallet</h3>
+                <p className="text-sm text-gray-600">
+                  Secure wallet using device biometrics and passkey technology for Web3.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start space-x-4">
+              <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center border border-gray-200 flex-shrink-0">
+                <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-1">Safe Integration</h3>
+                <p className="text-sm text-gray-600">
+                  Built on Safe (formerly Gnosis Safe) smart contract wallets for enhanced security.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start space-x-4">
+              <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center border border-gray-200 flex-shrink-0">
+                <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-1">Web2 Auth</h3>
+                <p className="text-sm text-gray-600">
+                  Easy onboarding with familiar authentication methods for seamless user experience.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column - Wallet Creation UI */}
+          <div className="bg-white rounded-3xl shadow-sm p-12 border border-gray-100">
+            <div className="flex items-center justify-center mb-6">
+              <div className="w-20 h-20 bg-black rounded-full flex items-center justify-center">
+                <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+              </div>
+            </div>
+
+            <h1 className="text-3xl font-bold text-center mb-2 text-gray-900">
+              Create Your Wallet
+            </h1>
+            <p className="text-center text-gray-500 text-sm mb-10">
+              You're signed in as {session?.user?.email}. Now create your passkey wallet.
+            </p>
+
+            <div className="space-y-5">
+              <button
+                onClick={initializeOrRestore}
+                disabled={isLoading}
+                className="w-full bg-black text-white py-3.5 px-4 rounded-xl hover:bg-gray-800 transition-all duration-200 font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <div className="flex items-center justify-center">
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                  Continue with Passkey
+                </div>
+              </button>
+
+              <button
+                onClick={() => nextAuthSignOut()}
+                className="w-full bg-white text-gray-700 py-3.5 px-4 rounded-xl border border-gray-300 hover:bg-gray-50 transition-all duration-200 font-medium text-sm"
+              >
+                Sign Out
+              </button>
+            </div>
+
+            {/* Footer */}
+            <div className="mt-8 text-center text-xs text-gray-500">
+              <p>
+                By connecting your wallet you agree to the{' '}
+                <a href="#" className="text-gray-900 hover:underline">Terms of Service</a>
+                {' '}and{' '}
+                <a href="#" className="text-gray-900 hover:underline">Privacy Policy</a>
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     );
