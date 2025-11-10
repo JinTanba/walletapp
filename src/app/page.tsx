@@ -34,7 +34,7 @@ export default function Home() {
     executeTransaction,
     clearWalletData,
     initializeOrRestore
-  } = useSafePasskeyHooks();
+  } = useSafePasskeyHooks(session?.user?.id);
 
   const [isDeploying, setIsDeploying] = useState(false);
   const [deployResult, setDeployResult] = useState<string | null>(null);
@@ -60,8 +60,8 @@ export default function Home() {
     }
   };
 
-  const handleClearWallet = () => {
-    clearWalletData();
+  const handleClearWallet = async () => {
+    await clearWalletData();
     setDeployResult(null);
   };
 
