@@ -1,6 +1,6 @@
 "use client";
 import Safe from '@safe-global/protocol-kit'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { PasskeyArgType, extractPasskeyData } from '@safe-global/protocol-kit'
 import { Safe4337Pack, SponsoredPaymasterOption } from '@safe-global/relay-kit'
 import {
@@ -40,10 +40,7 @@ export function useSafePasskeyHooks(googleUserID?: string) {
     const [safeAddress, setSafeAddress] = useState<string | null>(null)
     const [isDeployed, setIsDeployed] = useState<boolean>(false)
     const [isLoading, setIsLoading] = useState<boolean>(true)
-
-    useEffect(() => {
-        initializeOrRestore()
-    }, [])
+    const initializingRef = useRef<boolean>(false)
 
     // Passkeyを作成
     const createPasskey = async (): Promise<PasskeyArgType> => {
@@ -140,7 +137,14 @@ export function useSafePasskeyHooks(googleUserID?: string) {
     }
 
     // 初期化または復元
-    const initializeOrRestore = async () => {
+    const initializeOrRestore = useCallback(async () => {
+        // すでに初期化中または完了している場合はスキップ
+        if (initializingRef.current || safe4337Pack || safeAddress) {
+            console.log('Already initialized or initializing, skipping...')
+            return
+        }
+
+        initializingRef.current = true
         setIsLoading(true)
         try {
             // まずローカルストレージから読み込み
@@ -164,10 +168,16 @@ export function useSafePasskeyHooks(googleUserID?: string) {
             }
         } catch (error) {
             console.error('Failed to initialize:', error)
+            initializingRef.current = false
         } finally {
             setIsLoading(false)
         }
-    }
+    }, [safe4337Pack, safeAddress, googleUserID])
+
+    // 初回マウント時に初期化
+    useEffect(() => {
+        initializeOrRestore()
+    }, [initializeOrRestore])
 
     // 新規ウォレット作成
     const createNewWallet = async () => {
@@ -315,6 +325,7 @@ export function useSafePasskeyHooks(googleUserID?: string) {
         setSafe4337Pack(null)
         setSafeAddress(null)
         setIsDeployed(false)
+        initializingRef.current = false
         console.log('Wallet data cleared')
     }
 
