@@ -1,6 +1,6 @@
 import NextAuth, { AuthOptions } from "next-auth"
 import GoogleProvider from "next-auth/providers/google"
-import { adminAuth } from "@/app/libs/firebaseAdmin"
+import { authService } from "@/modules/auth/server/auth-service"
 
 export const authOptions: AuthOptions = {
   providers: [
@@ -14,12 +14,12 @@ export const authOptions: AuthOptions = {
       console.log('NextAuth signIn callback:', { user, account, profile })
       return true
     },
-    async jwt({ token, user, account }) {
+    async jwt({ token, user }) {
       // 初回ログイン時（userが存在する場合）にFirebaseカスタムトークンを生成
       if (user) {
         try {
-          // Firebase Admin SDKでカスタムトークンを生成
-          const customToken = await adminAuth.createCustomToken(user.id)
+          // 新しい認証サービスモジュールを使用
+          const customToken = await authService.generateFirebaseToken(user.id)
           token.firebaseToken = customToken
           console.log('Firebase custom token created for user:', user.id)
         } catch (error) {

@@ -1,8 +1,10 @@
 import { initializeApp, getApps, cert, App } from 'firebase-admin/app'
 import { getAuth, Auth } from 'firebase-admin/auth'
+import { getFirestore, Firestore } from 'firebase-admin/firestore'
 
 let app: App
 let adminAuth: Auth
+let adminDb: Firestore
 
 // Firebase Admin の初期化（サーバー側のみで実行）
 if (getApps().length === 0) {
@@ -18,5 +20,6 @@ if (getApps().length === 0) {
 }
 
 adminAuth = getAuth(app)
+adminDb = getFirestore(app)
 
-export { adminAuth }
+export { adminAuth, adminDb }

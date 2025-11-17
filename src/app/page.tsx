@@ -1,30 +1,20 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useSafePasskeyHooks } from "./hooks/safepasskeyFooks";
 import { sendLogMessage } from "./libs/executeTx";
-import { useSession, signOut as nextAuthSignOut } from "next-auth/react";
-import { signInWithCustomToken } from "firebase/auth";
-import { auth } from "./libs/firebase";
+import { signOut as nextAuthSignOut } from "next-auth/react";
+import { useAuth } from "@/modules/auth/client/useAuth";
 import { GoogleAuthButton } from "./components/GoogleAuthButton";
 
 export default function Home() {
-  const { data: session, status } = useSession();
-  const [firebaseUser, setFirebaseUser] = useState<any>(null);
+  // 新しい統一認証フックを使用
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
 
-  // NextAuthセッションからFirebaseトークンを使ってFirebaseにログイン
-  useEffect(() => {
-    if (session?.firebaseToken && !firebaseUser) {
-      console.log('Signing in to Firebase with custom token...');
-      signInWithCustomToken(auth, session.firebaseToken)
-        .then((result) => {
-          console.log('Firebase sign-in successful:', result.user.email);
-          setFirebaseUser(result.user);
-        })
-        .catch((error) => {
-          console.error('Firebase sign-in error:', error);
-        });
-    }
-  }, [session, firebaseUser]);
+  // デバッグログ
+  console.log('Home - user:', user);
+  console.log('Home - user.id:', user?.id);
+  console.log('Home - isAuthenticated:', isAuthenticated);
+  console.log('Home - authLoading:', authLoading);
 
   const {
     safeAddress,
@@ -34,7 +24,7 @@ export default function Home() {
     executeTransaction,
     clearWalletData,
     initializeOrRestore
-  } = useSafePasskeyHooks(session?.user?.id);
+  } = useSafePasskeyHooks(user?.id);
 
   const [isDeploying, setIsDeploying] = useState(false);
   const [deployResult, setDeployResult] = useState<string | null>(null);
@@ -115,8 +105,8 @@ export default function Home() {
     }
   };
 
-  // セッションのローディング中
-  if (status === 'loading' || isLoading) {
+  // 認証ローディング中
+  if (authLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-3xl shadow-sm p-12 max-w-md w-full border border-gray-100">
@@ -128,7 +118,7 @@ export default function Home() {
             </div>
           </div>
           <p className="text-gray-600 text-center text-sm">
-            {status === 'loading' ? 'Loading authentication...' : 'Initializing wallet...'}
+            Loading authentication...
           </p>
         </div>
       </div>
@@ -136,7 +126,7 @@ export default function Home() {
   }
 
   // Google認証が必要な場合
-  if (!session) {
+  if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-8">
         <div className="max-w-7xl w-full grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
@@ -221,8 +211,28 @@ export default function Home() {
     );
   }
 
-  // Firebase認証済みだがウォレット未作成の場合
-  if (firebaseUser && !safeAddress && !isLoading) {
+  // 認証済みでウォレット初期化中
+  if (isAuthenticated && isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-3xl shadow-sm p-12 max-w-md w-full border border-gray-100">
+          <div className="flex items-center justify-center mb-6">
+            <div className="w-16 h-16 bg-black rounded-full flex items-center justify-center">
+              <svg className="w-8 h-8 text-white animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            </div>
+          </div>
+          <p className="text-gray-600 text-center text-sm">
+            Initializing wallet...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // 認証済みだがウォレット未作成の場合
+  if (isAuthenticated && !safeAddress) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-8">
         <div className="max-w-7xl w-full grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
@@ -285,7 +295,7 @@ export default function Home() {
               Create Your Wallet
             </h1>
             <p className="text-center text-gray-500 text-sm mb-10">
-              You're signed in as {session?.user?.email}. Now create your passkey wallet.
+              You're signed in as {user?.email}. Now create your passkey wallet.
             </p>
 
             <div className="space-y-5">

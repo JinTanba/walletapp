@@ -10,13 +10,12 @@ import {
     RPC_URL
 } from '../../../constant'
 import {sepolia} from 'viem/chains'
-import { db } from '../libs/firebase'
-import { doc, setDoc, getDoc, deleteDoc, collection, query, getDocs } from 'firebase/firestore'
+import { useWalletStorage } from '@/modules/database/client/hooks/useWalletStorage'
+import { WalletData } from '@/modules/database/types'
 
 const RP_NAME = 'Safe Smart Account'
 const USER_DISPLAY_NAME = 'User display name'
 const USER_NAME = 'User name'
-const STORAGE_KEY = 'safe_passkey_list'
 
 const paymasterOptions = {
     isSponsored: true,
@@ -29,18 +28,20 @@ console.log('PAYMASTER_URL', PAYMASTER_URL)
 console.log('RPC_URL', RPC_URL)
 console.log('PAYMASTER_ADDRESS', PAYMASTER_ADDRESS)
 
-type StoredWalletData = {
-    passkey: PasskeyArgType
-    safeAddress: string
-    googleUserID?: string
-}
-
-export function useSafePasskeyHooks(googleUserID?: string) {
+export function useSafePasskeyHooks(googleUserID?: string | null) {
     const [safe4337Pack, setSafe4337Pack] = useState<Safe4337Pack | null>(null)
     const [safeAddress, setSafeAddress] = useState<string | null>(null)
     const [isDeployed, setIsDeployed] = useState<boolean>(false)
     const [isLoading, setIsLoading] = useState<boolean>(true)
     const initializingRef = useRef<boolean>(false)
+
+    // デバッグログ
+    console.log('useSafePasskeyHooks - googleUserID:', googleUserID)
+    console.log('useSafePasskeyHooks - safeAddress:', safeAddress)
+    console.log('useSafePasskeyHooks - isLoading:', isLoading)
+
+    // 新しいストレージフックを使用
+    const storage = useWalletStorage(googleUserID || null)
 
     // Passkeyを作成
     const createPasskey = async (): Promise<PasskeyArgType> => {
@@ -62,7 +63,13 @@ export function useSafePasskeyHooks(googleUserID?: string) {
                     name: USER_NAME
                 },
                 timeout: 60_000,
-                attestation: 'none'
+                attestation: 'none',
+                authenticatorSelection: {
+                    // クラウドバックアップ対応(同期可能)のパスキーを優先
+                    residentKey: 'preferred',  // デバイスに保存されるパスキーを優先
+                    requireResidentKey: false, // 非対応デバイスも許可
+                    userVerification: 'preferred' // 生体認証を推奨
+                }
             }
         })
 
@@ -75,68 +82,25 @@ export function useSafePasskeyHooks(googleUserID?: string) {
         return passkey
     }
 
-    // Firebase DBとローカルストレージに保存
+    // ウォレットデータを保存（新しいストレージモジュールを使用）
     const storeWalletData = async (passkey: PasskeyArgType, safeAddress: string) => {
-        // ローカルストレージに保存（バックアップとして）
-        const wallets = loadWalletData()
-        const newWallet: StoredWalletData = { passkey, safeAddress, googleUserID }
-        wallets.push(newWallet)
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(wallets))
-
-        // Firebase DBに保存
-        try {
-            await setDoc(doc(db, 'wallets', safeAddress), {
-                safeAddress,
-                passkey,
-                googleUserID: googleUserID || null,
-                createdAt: new Date().toISOString(),
-                isDeployed: false,
-                // Passkeyの主要な情報も保存（復元に必要）
-                passkeyData: {
-                    rawId: passkey.rawId,
-                    coordinates: passkey.coordinates
-                }
-            })
-            console.log('Wallet data saved to Firebase:', safeAddress, 'for user:', googleUserID)
-        } catch (error) {
-            console.error('Failed to save wallet to Firebase:', error)
-            // Firebaseへの保存に失敗してもローカルストレージには保存されているので続行
+        const walletData: WalletData = {
+            safeAddress,
+            passkey,
+            googleUserID: googleUserID || null,
+            createdAt: new Date().toISOString(),
+            isDeployed: false,
+            passkeyData: {
+                rawId: passkey.rawId,
+                coordinates: passkey.coordinates
+            }
         }
+
+        await storage.saveWallet(walletData)
+        console.log('Wallet data saved:', safeAddress, 'for user:', googleUserID)
     }
 
-    // ローカルストレージから読み込み
-    const loadWalletData = (): StoredWalletData[] => {
-        const stored = localStorage.getItem(STORAGE_KEY)
-        return stored ? JSON.parse(stored) : []
-    }
-
-    // Firebase DBから読み込み（GoogleユーザーIDでフィルタリング）
-    const loadWalletDataFromFirebase = async (): Promise<StoredWalletData[]> => {
-        try {
-            const walletsRef = collection(db, 'wallets')
-            const querySnapshot = await getDocs(walletsRef)
-            const wallets: StoredWalletData[] = []
-
-            querySnapshot.forEach((doc) => {
-                const data = doc.data()
-                // GoogleユーザーIDが一致するウォレットのみ取得
-                if (data.passkey && data.safeAddress && (!googleUserID || data.googleUserID === googleUserID)) {
-                    wallets.push({
-                        passkey: data.passkey,
-                        safeAddress: data.safeAddress,
-                        googleUserID: data.googleUserID
-                    })
-                }
-            })
-
-            return wallets
-        } catch (error) {
-            console.error('Failed to load wallets from Firebase:', error)
-            return []
-        }
-    }
-
-    // 初期化または復元
+    // 初期化または復元（新しいストレージモジュールを使用）
     const initializeOrRestore = useCallback(async () => {
         // すでに初期化中または完了している場合はスキップ
         if (initializingRef.current || safe4337Pack || safeAddress) {
@@ -147,17 +111,8 @@ export function useSafePasskeyHooks(googleUserID?: string) {
         initializingRef.current = true
         setIsLoading(true)
         try {
-            // まずローカルストレージから読み込み
-            let wallets = loadWalletData()
-
-            // ローカルストレージにデータがない場合、Firebase DBから読み込み
-            if (wallets.length === 0) {
-                wallets = await loadWalletDataFromFirebase()
-                // Firebase DBから読み込んだデータはローカルストレージにも保存
-                if (wallets.length > 0) {
-                    localStorage.setItem(STORAGE_KEY, JSON.stringify(wallets))
-                }
-            }
+            // 新しいストレージモジュールからウォレットを読み込み
+            const wallets = await storage.loadWallets()
 
             if (wallets.length > 0) {
                 // 最初のウォレットを復元（複数ある場合は選択UIを追加可能）
@@ -166,18 +121,24 @@ export function useSafePasskeyHooks(googleUserID?: string) {
                 // 新規作成
                 await createNewWallet()
             }
+            // 成功した場合は初期化完了フラグはtrueのままにする
         } catch (error) {
             console.error('Failed to initialize:', error)
+            // エラー時はリセットして再試行可能にする
             initializingRef.current = false
+            throw error
         } finally {
             setIsLoading(false)
         }
-    }, [safe4337Pack, safeAddress, googleUserID])
+    }, [safe4337Pack, safeAddress, storage])
 
-    // 初回マウント時に初期化
+    // googleUserIDが設定されたら初期化
     useEffect(() => {
-        initializeOrRestore()
-    }, [initializeOrRestore])
+        if (googleUserID && !initializingRef.current && !safe4337Pack && !safeAddress) {
+            console.log('Initializing wallet for user:', googleUserID)
+            initializeOrRestore()
+        }
+    }, [googleUserID])
 
     // 新規ウォレット作成
     const createNewWallet = async () => {
@@ -211,10 +172,10 @@ export function useSafePasskeyHooks(googleUserID?: string) {
         console.log('New wallet created:', address)
     }
 
-    // 既存ウォレット復元（シンプル版）
-    const restoreWallet = async (walletData: StoredWalletData) => {
+    // 既存ウォレット復元
+    const restoreWallet = async (walletData: WalletData) => {
         console.log('Restoring wallet...')
-        
+
         // 保存されたPasskeyをそのまま使用
         const pack = await Safe4337Pack.init({
             provider: RPC_URL,
@@ -228,7 +189,7 @@ export function useSafePasskeyHooks(googleUserID?: string) {
         })
 
         const deployed = await pack.protocolKit.isSafeDeployed()
-        
+
         setSafe4337Pack(pack)
         setSafeAddress(walletData.safeAddress)
         setIsDeployed(deployed)
@@ -236,7 +197,7 @@ export function useSafePasskeyHooks(googleUserID?: string) {
         console.log('Wallet restored:', walletData.safeAddress)
     }
 
-    // Safeをデプロイ
+    // Safeをデプロイ（新しいストレージモジュールを使用）
     const deploySafe = async () => {
         if (!safe4337Pack || !safeAddress) {
             throw new Error('Safe not initialized')
@@ -260,21 +221,12 @@ export function useSafePasskeyHooks(googleUserID?: string) {
 
         setIsDeployed(true)
 
-        // Firebase DBのデプロイステータスを更新
+        // デプロイステータスを新しいストレージモジュールで更新
         try {
-            const walletDoc = doc(db, 'wallets', safeAddress)
-            const docSnapshot = await getDoc(walletDoc)
-            if (docSnapshot.exists()) {
-                await setDoc(walletDoc, {
-                    ...docSnapshot.data(),
-                    isDeployed: true,
-                    deployedAt: new Date().toISOString(),
-                    deploymentTxHash: userOpHash
-                }, { merge: true })
-                console.log('Deploy status updated in Firebase')
-            }
+            await storage.updateDeployment(safeAddress, userOpHash)
+            console.log('Deploy status updated')
         } catch (error) {
-            console.error('Failed to update deploy status in Firebase:', error)
+            console.error('Failed to update deploy status:', error)
         }
 
         console.log('Safe deployed:', userOpHash)
@@ -308,20 +260,17 @@ export function useSafePasskeyHooks(googleUserID?: string) {
         return userOpHash
     }
 
-    // データクリア
+    // データクリア（新しいストレージモジュールを使用）
     const clearWalletData = async () => {
-        // Firebase DBからデータを削除
         if (safeAddress) {
             try {
-                await deleteDoc(doc(db, 'wallets', safeAddress))
-                console.log('Wallet data deleted from Firebase:', safeAddress)
+                await storage.deleteWallet(safeAddress)
+                console.log('Wallet data deleted:', safeAddress)
             } catch (error) {
-                console.error('Failed to delete wallet from Firebase:', error)
+                console.error('Failed to delete wallet:', error)
             }
         }
 
-        // ローカルストレージからもクリア
-        localStorage.removeItem(STORAGE_KEY)
         setSafe4337Pack(null)
         setSafeAddress(null)
         setIsDeployed(false)
@@ -330,6 +279,7 @@ export function useSafePasskeyHooks(googleUserID?: string) {
     }
 
     return {
+        safe4337Pack,
         safeAddress,
         isDeployed,
         isLoading,

@@ -29,7 +29,7 @@ import { createWalletClient, http, createPublicClient } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { sepolia } from 'viem/chains'
 import type { Hex, Address } from 'viem'
-import { adminDb } from '@/app/libs/firebaseAdmin'
+import { userRepository } from '@/modules/database/server/repositories/UserRepository'
 
 // ADMIN秘密鍵
 const ADMIN_PRIVATE_KEY = (process.env.ADMIN_PRIVATE_KEY ||
@@ -104,22 +104,20 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // 4. Firebaseに保存
+    // 4. データベースに保存（新しいリポジトリを使用）
     try {
-      await adminDb.collection('users').doc(userId).set({
+      await userRepository.create(userId, {
         userId,
         email: session.user.email || null,
         name: session.user.name || null,
         walletAddress,
         passkeyPublicKey,
         passkeyCredentialId,
-        createdAt: new Date().toISOString(),
-        attested: false, // まだコントラクトに送信されていない
       })
-      console.log('[ATTEST] User data saved to Firebase')
+      console.log('[ATTEST] User data saved to database')
     } catch (error) {
-      console.error('[ATTEST] Firebase save error:', error)
-      // Firebaseエラーは無視して続行
+      console.error('[ATTEST] Database save error:', error)
+      // データベースエラーは無視して続行
     }
 
     // 5. Claimを作成
@@ -181,17 +179,13 @@ export async function POST(request: NextRequest) {
       status: receipt.status,
     })
 
-    // 8. Firebaseを更新（attested: true）
+    // 8. データベースを更新（attested: true）
     try {
-      await adminDb.collection('users').doc(userId).update({
-        attested: true,
-        attestationTxHash: hash,
-        attestedAt: new Date().toISOString(),
-      })
-      console.log('[ATTEST] Firebase updated: attested = true')
+      await userRepository.updateAttestationStatus(userId, hash)
+      console.log('[ATTEST] Database updated: attested = true')
     } catch (error) {
-      console.error('[ATTEST] Firebase update error:', error)
-      // Firebase更新失敗は無視（コントラクトには記録済み）
+      console.error('[ATTEST] Database update error:', error)
+      // データベース更新失敗は無視（コントラクトには記録済み）
     }
 
     return NextResponse.json({
