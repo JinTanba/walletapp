@@ -1,18 +1,5 @@
-import { PasskeyArgType } from '@safe-global/protocol-kit'
-import { Safe4337Pack, SponsoredPaymasterOption } from '@safe-global/relay-kit'
+import { Safe4337Pack } from '@safe-global/relay-kit'
 import { encodeFunctionData } from 'viem'
-import {
-  BUNDLER_URL,
-  PAYMASTER_ADDRESS,
-  PAYMASTER_URL,
-  RPC_URL
-} from '../../../constant'
-
-const paymasterOptions = {
-  isSponsored: true,
-  paymasterAddress: PAYMASTER_ADDRESS,
-  paymasterUrl: PAYMASTER_URL
-} as SponsoredPaymasterOption
 
 // Contract address for the log message contract
 const LOG_CONTRACT_ADDRESS = '0x9b1B5d4c95530d747bfaad5934A8E5D448a28AF5'; // Replace with actual deployed contract address

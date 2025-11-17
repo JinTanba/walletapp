@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
     console.log('[ATTEST] Starting attestation for user:', userId)
 
     // 3. 既にAttestation済みかチェック
-    const registry = createLegitRegistry(LEGIT_REGISTRY_ADDRESS, CONTRACT_RPC_URL)
+    const registry = createLegitRegistry(LEGIT_REGISTRY_ADDRESS as Address, CONTRACT_RPC_URL)
     const status = await registry.checkLegitStatus(walletAddress as Address)
 
     if (status.isLegit) {
@@ -131,7 +131,7 @@ export async function POST(request: NextRequest) {
 
     // 6. ADMIN署名を作成
     const adminRegistry = createLegitRegistryWithAdmin(
-      LEGIT_REGISTRY_ADDRESS,
+      LEGIT_REGISTRY_ADDRESS as Address,
       CONTRACT_RPC_URL,
       ADMIN_PRIVATE_KEY
     )
@@ -159,7 +159,7 @@ export async function POST(request: NextRequest) {
 
     // トランザクションをシミュレート
     const { request: txRequest } = await publicClient.simulateContract({
-      address: LEGIT_REGISTRY_ADDRESS,
+      address: LEGIT_REGISTRY_ADDRESS as Address,
       abi: LEGIT_REGISTRY_ABI,
       functionName: 'submitAttestation',
       args: [claim, signature],

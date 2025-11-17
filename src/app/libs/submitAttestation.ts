@@ -59,7 +59,7 @@ export async function submitAttestationViaSafe(
   safe4337Pack: Safe4337Pack,
   claim: Claim,
   adminSignature: Hex,
-  contractAddress: Address = LEGIT_REGISTRY_ADDRESS
+  contractAddress: Address = LEGIT_REGISTRY_ADDRESS as Address
 ): Promise<string> {
   console.log('[ATTEST] Submitting attestation via Safe4337Pack:', {
     wallet: claim.wallet,
@@ -100,7 +100,7 @@ export async function submitAttestationViaSafe(
 export async function submitMultipleAttestationsViaSafe(
   safe4337Pack: Safe4337Pack,
   attestations: Array<{ claim: Claim; signature: Hex }>,
-  contractAddress: Address = LEGIT_REGISTRY_ADDRESS
+  contractAddress: Address = LEGIT_REGISTRY_ADDRESS as Address
 ): Promise<string[]> {
   console.log(`[ATTEST] Submitting ${attestations.length} attestations via Safe4337Pack`)
 

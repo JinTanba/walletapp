@@ -10,7 +10,7 @@ import {
   calculateExpiry,
   getCurrentTimestamp,
 } from './src/app/libs/legitRegistry'
-import { createWalletClient, http } from 'viem'
+import { createWalletClient, http, type Address } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { sepolia } from 'viem/chains'
 import {
@@ -34,7 +34,7 @@ async function main() {
   console.log('Step 1: Initialize LegitRegistry')
   console.log('-'.repeat(80))
   const registry = createLegitRegistryWithAdmin(
-    LEGIT_REGISTRY_ADDRESS,
+    LEGIT_REGISTRY_ADDRESS as Address,
     RPC_URL,
     ADMIN_PRIVATE_KEY
   )

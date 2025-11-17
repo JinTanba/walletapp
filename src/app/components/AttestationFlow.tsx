@@ -11,7 +11,7 @@ import { useAttestationOnSignup } from '@/app/hooks/useAttestationOnSignup'
 
 export function AttestationFlow() {
   const { data: session } = useSession()
-  const { safeAddress, isLoading: walletLoading } = useSafePasskeyHooks()
+  const { safeAddress, isLoading: walletLoading, safe4337Pack } = useSafePasskeyHooks()
   const {
     submitAttestation,
     status,

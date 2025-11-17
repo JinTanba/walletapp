@@ -34,7 +34,7 @@ const USER_HASH_PEPPER = process.env.USER_HASH_PEPPER || 'default-pepper-change-
  */
 async function checkAttestationStatus(walletAddress: Address): Promise<boolean> {
   try {
-    const registry = createLegitRegistry(LEGIT_REGISTRY_ADDRESS, RPC_URL)
+    const registry = createLegitRegistry(LEGIT_REGISTRY_ADDRESS as Address, RPC_URL)
     const status = await registry.checkLegitStatus(walletAddress)
 
     if (status.isLegit) {
@@ -103,7 +103,7 @@ export async function POST(request: NextRequest) {
 
     // ADMIN署名を作成
     const registry = createLegitRegistryWithAdmin(
-      LEGIT_REGISTRY_ADDRESS,
+      LEGIT_REGISTRY_ADDRESS as Address,
       RPC_URL,
       ADMIN_PRIVATE_KEY
     )

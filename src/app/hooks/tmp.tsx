@@ -1,5 +1,4 @@
 "use client";
-import Safe from '@safe-global/protocol-kit'
 import { useEffect, useState } from 'react'
 import { PasskeyArgType, extractPasskeyData } from '@safe-global/protocol-kit'
 import { Safe4337Pack, SponsoredPaymasterOption } from '@safe-global/relay-kit'
