@@ -69,14 +69,6 @@ export function useAuth() {
       }
     : null
 
-  // デバッグログ
-  console.log('useAuth - session:', session)
-  console.log('useAuth - session.user?.id:', session?.user?.id)
-  console.log('useAuth - firebaseUser:', firebaseUser)
-  console.log('useAuth - firebaseUser.uid:', firebaseUser?.uid)
-  console.log('useAuth - authUser:', authUser)
-  console.log('useAuth - authUser.id:', authUser?.id)
-
   return {
     user: authUser,
     isAuthenticated: !!authUser,

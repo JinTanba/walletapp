@@ -34,11 +34,7 @@ export function useSafePasskeyHooks(googleUserID?: string | null) {
     const [isDeployed, setIsDeployed] = useState<boolean>(false)
     const [isLoading, setIsLoading] = useState<boolean>(true)
     const initializingRef = useRef<boolean>(false)
-
-    // デバッグログ
-    console.log('useSafePasskeyHooks - googleUserID:', googleUserID)
-    console.log('useSafePasskeyHooks - safeAddress:', safeAddress)
-    console.log('useSafePasskeyHooks - isLoading:', isLoading)
+    const initializedUserRef = useRef<string | null>(null)
 
     // 新しいストレージフックを使用
     const storage = useWalletStorage(googleUserID || null)
@@ -100,45 +96,65 @@ export function useSafePasskeyHooks(googleUserID?: string | null) {
         console.log('Wallet data saved:', safeAddress, 'for user:', googleUserID)
     }
 
-    // 初期化または復元（新しいストレージモジュールを使用）
-    const initializeOrRestore = useCallback(async () => {
-        // すでに初期化中または完了している場合はスキップ
+    // マウント時に既存ウォレットを自動復元（初期化は手動）
+    useEffect(() => {
+        const autoRestore = async () => {
+            // すでに初期化済み、または初期化中の場合はスキップ
+            if (initializingRef.current || safe4337Pack || safeAddress || !googleUserID) {
+                return
+            }
+
+            // このユーザーで既に初期化済みの場合はスキップ
+            if (initializedUserRef.current === googleUserID) {
+                return
+            }
+
+            initializingRef.current = true
+            setIsLoading(true)
+
+            try {
+                // ストレージから既存ウォレットを読み込み
+                const wallets = await storage.loadWallets()
+
+                if (wallets.length > 0) {
+                    // 既存ウォレットがあれば自動復元
+                    await restoreWallet(wallets[0])
+                    initializedUserRef.current = googleUserID
+                }
+                // 既存ウォレットがない場合は何もしない（手動で作成が必要）
+            } catch (error) {
+                console.error('Failed to restore wallet:', error)
+                initializingRef.current = false
+            } finally {
+                setIsLoading(false)
+            }
+        }
+
+        autoRestore()
+    }, [googleUserID, safe4337Pack, safeAddress, storage])
+
+    // 新規ウォレット作成（手動実行のみ）
+    const createWallet = useCallback(async () => {
         if (initializingRef.current || safe4337Pack || safeAddress) {
-            console.log('Already initialized or initializing, skipping...')
-            return
+            throw new Error('Wallet already exists or is being created')
         }
 
         initializingRef.current = true
         setIsLoading(true)
-        try {
-            // 新しいストレージモジュールからウォレットを読み込み
-            const wallets = await storage.loadWallets()
 
-            if (wallets.length > 0) {
-                // 最初のウォレットを復元（複数ある場合は選択UIを追加可能）
-                await restoreWallet(wallets[0])
-            } else {
-                // 新規作成
-                await createNewWallet()
+        try {
+            await createNewWallet()
+            if (googleUserID) {
+                initializedUserRef.current = googleUserID
             }
-            // 成功した場合は初期化完了フラグはtrueのままにする
         } catch (error) {
-            console.error('Failed to initialize:', error)
-            // エラー時はリセットして再試行可能にする
+            console.error('Failed to create wallet:', error)
             initializingRef.current = false
             throw error
         } finally {
             setIsLoading(false)
         }
-    }, [safe4337Pack, safeAddress, storage])
-
-    // googleUserIDが設定されたら初期化
-    useEffect(() => {
-        if (googleUserID && !initializingRef.current && !safe4337Pack && !safeAddress) {
-            console.log('Initializing wallet for user:', googleUserID)
-            initializeOrRestore()
-        }
-    }, [googleUserID])
+    }, [safe4337Pack, safeAddress, googleUserID])
 
     // 新規ウォレット作成
     const createNewWallet = async () => {
@@ -261,7 +277,7 @@ export function useSafePasskeyHooks(googleUserID?: string | null) {
     }
 
     // データクリア（新しいストレージモジュールを使用）
-    const clearWalletData = async () => {
+    const clearWalletData = useCallback(async () => {
         if (safeAddress) {
             try {
                 await storage.deleteWallet(safeAddress)
@@ -275,17 +291,18 @@ export function useSafePasskeyHooks(googleUserID?: string | null) {
         setSafeAddress(null)
         setIsDeployed(false)
         initializingRef.current = false
+        initializedUserRef.current = null
         console.log('Wallet data cleared')
-    }
+    }, [safeAddress, storage])
 
     return {
         safe4337Pack,
         safeAddress,
         isDeployed,
         isLoading,
+        createWallet,        // 新規作成（手動）
         deploySafe,
         executeTransaction,
-        clearWalletData,
-        initializeOrRestore
+        clearWalletData
     }
 }

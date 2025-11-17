@@ -10,20 +10,14 @@ export default function Home() {
   // 新しい統一認証フックを使用
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
 
-  // デバッグログ
-  console.log('Home - user:', user);
-  console.log('Home - user.id:', user?.id);
-  console.log('Home - isAuthenticated:', isAuthenticated);
-  console.log('Home - authLoading:', authLoading);
-
   const {
     safeAddress,
     isDeployed,
     isLoading,
+    createWallet,
     deploySafe,
     executeTransaction,
-    clearWalletData,
-    initializeOrRestore
+    clearWalletData
   } = useSafePasskeyHooks(user?.id);
 
   const [isDeploying, setIsDeploying] = useState(false);
@@ -31,6 +25,7 @@ export default function Home() {
   const [message, setMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [txResult, setTxResult] = useState<string | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
 
   // Fixed contract address
   const LOG_CONTRACT_ADDRESS = '0x9b1B5d4c95530d747bfaad5934A8E5D448a28AF5';
@@ -55,11 +50,15 @@ export default function Home() {
     setDeployResult(null);
   };
 
-  const handleInitialize = async () => {
+  const handleCreateWallet = async () => {
+    setIsCreating(true);
     try {
-      await initializeOrRestore();
+      await createWallet();
     } catch (error) {
-      console.error('Initialize failed:', error);
+      console.error('Create wallet failed:', error);
+      alert('Failed to create wallet. Please try again.');
+    } finally {
+      setIsCreating(false);
     }
   };
 
@@ -300,15 +299,26 @@ export default function Home() {
 
             <div className="space-y-5">
               <button
-                onClick={initializeOrRestore}
-                disabled={isLoading}
+                onClick={handleCreateWallet}
+                disabled={isCreating || isLoading}
                 className="w-full bg-black text-white py-3.5 px-4 rounded-xl hover:bg-gray-800 transition-all duration-200 font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <div className="flex items-center justify-center">
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                  </svg>
-                  Continue with Passkey
+                  {isCreating ? (
+                    <>
+                      <svg className="w-4 h-4 mr-2 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                      Creating...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                      </svg>
+                      Continue with Passkey
+                    </>
+                  )}
                 </div>
               </button>
 
@@ -401,17 +411,29 @@ export default function Home() {
           </p>
 
         <div className="space-y-5">
-          {/* Initialize Wallet Button */}
+          {/* Create Wallet Button */}
           {!safeAddress ? (
             <button
-              onClick={handleInitialize}
-              className="w-full bg-black text-white py-3.5 px-4 rounded-xl hover:bg-gray-800 transition-all duration-200 font-medium text-sm"
+              onClick={handleCreateWallet}
+              disabled={isCreating || isLoading}
+              className="w-full bg-black text-white py-3.5 px-4 rounded-xl hover:bg-gray-800 transition-all duration-200 font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <div className="flex items-center justify-center">
-                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                </svg>
-                Continue with Passkey
+                {isCreating ? (
+                  <>
+                    <svg className="w-4 h-4 mr-2 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    Creating...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                    Continue with Passkey
+                  </>
+                )}
               </div>
             </button>
           ) : (
