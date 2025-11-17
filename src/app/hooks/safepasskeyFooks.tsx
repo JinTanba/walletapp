@@ -135,9 +135,6 @@ export function useSafePasskeyHooks(googleUserID?: string | null) {
 
     // 新規ウォレット作成（手動実行のみ）
     const createWallet = useCallback(async () => {
-        if (initializingRef.current || safe4337Pack || safeAddress) {
-            throw new Error('Wallet already exists or is being created')
-        }
 
         initializingRef.current = true
         setIsLoading(true)
